@@ -18,8 +18,14 @@ export function Login() {
     e.preventDefault()
     setError('')
 
-    if (!email) { setError('Email is required'); return }
-    if (!password) { setError('Password is required'); return }
+    if (!email) {
+      setError('Email is required')
+      return
+    }
+    if (!password) {
+      setError('Password is required')
+      return
+    }
 
     setLoading(true)
     try {
@@ -74,7 +80,7 @@ export function Login() {
                   className="input pr-10"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="********"
                   autoComplete="current-password"
                 />
                 <button
@@ -88,7 +94,7 @@ export function Login() {
             </div>
 
             <button type="submit" className="btn-primary w-full justify-center py-2.5" disabled={loading}>
-              {loading ? 'Signing in…' : 'Sign In'}
+              {loading ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
         </div>
@@ -100,7 +106,6 @@ export function Login() {
           </Link>
         </p>
 
-        {/* Test credentials hint */}
         <div className="mt-4 card p-3 text-xs text-center text-gray-500 dark:text-slate-400">
           <strong>Demo:</strong> test@example.com / password123
         </div>

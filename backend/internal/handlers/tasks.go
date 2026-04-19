@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 
@@ -16,10 +15,11 @@ import (
 type TaskHandler struct {
 	tasks    *repository.TaskRepo
 	projects *repository.ProjectRepo
+	users    *repository.UserRepo
 }
 
-func NewTaskHandler(tasks *repository.TaskRepo, projects *repository.ProjectRepo) *TaskHandler {
-	return &TaskHandler{tasks: tasks, projects: projects}
+func NewTaskHandler(tasks *repository.TaskRepo, projects *repository.ProjectRepo, users *repository.UserRepo) *TaskHandler {
+	return &TaskHandler{tasks: tasks, projects: projects, users: users}
 }
 
 func (h *TaskHandler) ListByProject(w http.ResponseWriter, r *http.Request) {
@@ -89,16 +89,20 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Title       string               `json:"title"`
-		Description *string              `json:"description"`
-		Priority    models.TaskPriority  `json:"priority"`
-		AssigneeID  *string              `json:"assignee_id"`
-		DueDate     *string              `json:"due_date"`
+		Title       string              `json:"title"`
+		Description *string             `json:"description"`
+		Priority    models.TaskPriority `json:"priority"`
+		AssigneeID  *string             `json:"assignee_id"`
+		DueDate     *string             `json:"due_date"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r.Body, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+
+	req.Title = normalizeRequiredText(req.Title)
+	req.Description = normalizeOptionalText(req.Description)
+	req.DueDate = normalizeOptionalText(req.DueDate)
 
 	fields := map[string]string{}
 	if req.Title == "" {
@@ -112,19 +116,34 @@ func (h *TaskHandler) Create(w http.ResponseWriter, r *http.Request) {
 	} else if !validPriorities[req.Priority] {
 		fields["priority"] = "must be low, medium, or high"
 	}
-	if len(fields) > 0 {
-		writeValidationError(w, fields)
-		return
+	if req.DueDate != nil {
+		if err := validateISODate(*req.DueDate); err != nil {
+			fields["due_date"] = err.Error()
+		}
 	}
 
 	var assigneeID *uuid.UUID
-	if req.AssigneeID != nil && *req.AssigneeID != "" {
-		aid, err := uuid.Parse(*req.AssigneeID)
+	if req.AssigneeID != nil && normalizeRequiredText(*req.AssigneeID) != "" {
+		aid, err := uuid.Parse(normalizeRequiredText(*req.AssigneeID))
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid assignee_id")
-			return
+			fields["assignee_id"] = "must be a valid UUID"
+		} else {
+			exists, err := h.users.ExistsByID(r.Context(), aid)
+			if err != nil {
+				slog.Error("check assignee existence", "error", err)
+				writeError(w, http.StatusInternalServerError, "internal error")
+				return
+			}
+			if !exists {
+				fields["assignee_id"] = "must reference an existing user"
+			} else {
+				assigneeID = &aid
+			}
 		}
-		assigneeID = &aid
+	}
+	if len(fields) > 0 {
+		writeValidationError(w, fields)
+		return
 	}
 
 	task, err := h.tasks.Create(r.Context(), projectID, userID, req.Title, req.Description, req.Priority, assigneeID, req.DueDate)
@@ -165,18 +184,24 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Title         *string               `json:"title"`
-		Description   *string               `json:"description"`
-		Status        *models.TaskStatus    `json:"status"`
-		Priority      *models.TaskPriority  `json:"priority"`
-		AssigneeID    *string               `json:"assignee_id"`
-		DueDate       *string               `json:"due_date"`
+		Title       OptionalString       `json:"title"`
+		Description OptionalString       `json:"description"`
+		Status      *models.TaskStatus   `json:"status"`
+		Priority    *models.TaskPriority `json:"priority"`
+		AssigneeID  OptionalString       `json:"assignee_id"`
+		DueDate     OptionalString       `json:"due_date"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r.Body, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 	fields := map[string]string{}
+	if req.Title.Set {
+		title := req.Title.Trimmed()
+		if req.Title.Null || title == "" {
+			fields["title"] = "cannot be empty"
+		}
+	}
 	if req.Status != nil {
 		validStatuses := map[models.TaskStatus]bool{
 			models.StatusTodo: true, models.StatusInProgress: true, models.StatusDone: true,
@@ -193,29 +218,72 @@ func (h *TaskHandler) Update(w http.ResponseWriter, r *http.Request) {
 			fields["priority"] = "must be low, medium, or high"
 		}
 	}
+	if req.DueDate.Set && !req.DueDate.Null {
+		dueDate := req.DueDate.Trimmed()
+		if dueDate != "" {
+			if err := validateISODate(dueDate); err != nil {
+				fields["due_date"] = err.Error()
+			}
+		}
+	}
+	if req.AssigneeID.Set && !req.AssigneeID.Null {
+		assignee := req.AssigneeID.Trimmed()
+		if assignee != "" {
+			aid, err := uuid.Parse(assignee)
+			if err != nil {
+				fields["assignee_id"] = "must be a valid UUID"
+			} else {
+				exists, err := h.users.ExistsByID(r.Context(), aid)
+				if err != nil {
+					slog.Error("check assignee existence", "error", err)
+					writeError(w, http.StatusInternalServerError, "internal error")
+					return
+				}
+				if !exists {
+					fields["assignee_id"] = "must reference an existing user"
+				}
+			}
+		}
+	}
 	if len(fields) > 0 {
 		writeValidationError(w, fields)
 		return
 	}
 
 	input := repository.UpdateTaskInput{
-		Title:       req.Title,
-		Description: req.Description,
-		Status:      req.Status,
-		Priority:    req.Priority,
-		DueDate:     req.DueDate,
+		Status:   req.Status,
+		Priority: req.Priority,
 	}
 
-	if req.AssigneeID != nil {
-		if *req.AssigneeID == "" {
+	if req.Title.Set && !req.Title.Null {
+		title := req.Title.Trimmed()
+		if title != "" {
+			input.Title = &title
+		}
+	}
+	if req.Description.Set {
+		description := req.Description.Trimmed()
+		if req.Description.Null || description == "" {
+			input.ClearDescription = true
+		} else {
+			input.Description = &description
+		}
+	}
+	if req.AssigneeID.Set {
+		assignee := req.AssigneeID.Trimmed()
+		if req.AssigneeID.Null || assignee == "" {
 			input.ClearAssignee = true
 		} else {
-			aid, err := uuid.Parse(*req.AssigneeID)
-			if err != nil {
-				writeError(w, http.StatusBadRequest, "invalid assignee_id")
-				return
-			}
+			aid, _ := uuid.Parse(assignee)
 			input.AssigneeID = &aid
+		}
+	}
+	if req.DueDate.Set {
+		dueDate := req.DueDate.Trimmed()
+		if req.DueDate.Null || dueDate == "" {
+			input.ClearDueDate = true
+		} else {
+			input.DueDate = &dueDate
 		}
 	}
 

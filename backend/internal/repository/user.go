@@ -55,3 +55,15 @@ func (r *UserRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.User, err
 	}
 	return user, nil
 }
+
+func (r *UserRepo) ExistsByID(ctx context.Context, id uuid.UUID) (bool, error) {
+	var exists bool
+	err := r.db.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM users WHERE id = $1)`,
+		id,
+	).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("check user existence: %w", err)
+	}
+	return exists, nil
+}

@@ -27,7 +27,11 @@ export function Register() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     const errs = validate()
-    if (Object.keys(errs).length > 0) { setErrors(errs); return }
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs)
+      return
+    }
+
     setErrors({})
     setLoading(true)
     try {
@@ -113,7 +117,7 @@ export function Register() {
             </div>
 
             <button type="submit" className="btn-primary w-full justify-center py-2.5" disabled={loading}>
-              {loading ? 'Creating account…' : 'Create Account'}
+              {loading ? 'Creating account...' : 'Create Account'}
             </button>
           </form>
         </div>

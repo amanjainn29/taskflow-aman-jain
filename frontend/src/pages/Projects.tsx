@@ -41,7 +41,11 @@ export function Projects() {
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
-    if (!name.trim()) { setFormError('Project name is required'); return }
+    if (!name.trim()) {
+      setFormError('Project name is required')
+      return
+    }
+
     setFormError('')
     createMutation.mutate()
   }
@@ -58,16 +62,12 @@ export function Projects() {
               {projects.length} {projects.length === 1 ? 'project' : 'projects'}
             </p>
           </div>
-          <button
-            onClick={() => setShowForm((v) => !v)}
-            className="btn-primary"
-          >
+          <button onClick={() => setShowForm((v) => !v)} className="btn-primary">
             <Plus size={16} />
             New Project
           </button>
         </div>
 
-        {/* Create project form */}
         {showForm && (
           <div className="card p-5 mb-6">
             <h2 className="text-sm font-semibold text-gray-700 dark:text-slate-300 mb-4">Create New Project</h2>
@@ -99,27 +99,28 @@ export function Projects() {
               <div className="flex gap-2 pt-1">
                 <button
                   type="button"
-                  onClick={() => { setShowForm(false); setFormError('') }}
+                  onClick={() => {
+                    setShowForm(false)
+                    setFormError('')
+                  }}
                   className="btn-secondary"
                 >
                   Cancel
                 </button>
                 <button type="submit" className="btn-primary" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? 'Creating…' : 'Create Project'}
+                  {createMutation.isPending ? 'Creating...' : 'Create Project'}
                 </button>
               </div>
             </form>
           </div>
         )}
 
-        {/* Loading state */}
         {isLoading && (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="animate-spin text-green-600" size={32} />
           </div>
         )}
 
-        {/* Error state */}
         {isError && (
           <div className="card p-8 text-center">
             <p className="text-red-500 dark:text-red-400 font-medium">Failed to load projects</p>
@@ -127,7 +128,6 @@ export function Projects() {
           </div>
         )}
 
-        {/* Empty state */}
         {!isLoading && !isError && projects.length === 0 && (
           <div className="card p-12 text-center">
             <FolderOpen className="mx-auto text-gray-300 dark:text-slate-600 mb-3" size={48} />
@@ -135,16 +135,12 @@ export function Projects() {
             <p className="text-sm text-gray-400 dark:text-slate-500 mt-1">
               Create your first project to get started
             </p>
-            <button
-              onClick={() => setShowForm(true)}
-              className="btn-primary mt-4 mx-auto"
-            >
+            <button onClick={() => setShowForm(true)} className="btn-primary mt-4 mx-auto">
               <Plus size={16} /> Create Project
             </button>
           </div>
         )}
 
-        {/* Projects list */}
         {!isLoading && projects.length > 0 && (
           <div className="space-y-3">
             {projects.map((project) => (
@@ -169,7 +165,7 @@ export function Projects() {
                       )}
                       <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
                         Created {new Date(project.created_at).toLocaleDateString('en-IN', {
-                          day: 'numeric', month: 'short', year: 'numeric'
+                          day: 'numeric', month: 'short', year: 'numeric',
                         })}
                       </p>
                     </div>

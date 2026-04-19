@@ -21,26 +21,32 @@ export function TaskModal({ projectId, task, onClose }: Props) {
   const [dueDate, setDueDate] = useState(task?.due_date?.split('T')[0] ?? '')
   const [error, setError] = useState('')
 
-  // close on Escape
+  // Close the modal on Escape for a faster edit flow.
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [onClose])
 
   const mutation = useMutation({
     mutationFn: () => {
+      const trimmedTitle = title.trim()
+      const trimmedDescription = description.trim()
+
       if (isEdit) {
         return tasksApi.update(task.id, {
-          title,
-          description: description || undefined,
+          title: trimmedTitle,
+          description: trimmedDescription === '' ? null : trimmedDescription,
           priority,
           due_date: dueDate || null,
         })
       }
+
       return tasksApi.create(projectId, {
-        title,
-        description: description || undefined,
+        title: trimmedTitle,
+        description: trimmedDescription === '' ? undefined : trimmedDescription,
         priority,
         due_date: dueDate || undefined,
       })
@@ -51,27 +57,27 @@ export function TaskModal({ projectId, task, onClose }: Props) {
       onClose()
     },
     onError: (err: unknown) => {
-      const e = err as { response?: { data?: { error?: string } } }
-      setError(e.response?.data?.error ?? 'Something went wrong')
+      const e = err as { response?: { data?: { error?: string; fields?: Record<string, string> } } }
+      const fieldError = e.response?.data?.fields ? Object.values(e.response.data.fields)[0] : undefined
+      setError(fieldError ?? e.response?.data?.error ?? 'Something went wrong')
     },
   })
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
-    if (!title.trim()) { setError('Title is required'); return }
+    if (!title.trim()) {
+      setError('Title is required')
+      return
+    }
+
     setError('')
     mutation.mutate()
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Panel */}
       <div className="relative card w-full max-w-md p-6 shadow-2xl">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-slate-100">
@@ -123,9 +129,11 @@ export function TaskModal({ projectId, task, onClose }: Props) {
                     className={clsx(
                       'flex-1 py-1.5 text-xs font-medium rounded-lg border transition-colors capitalize',
                       priority === p
-                        ? p === 'low' ? 'bg-gray-200 dark:bg-slate-600 border-gray-300 dark:border-slate-500 text-gray-800 dark:text-slate-100'
-                          : p === 'medium' ? 'bg-yellow-100 dark:bg-yellow-900/50 border-yellow-300 dark:border-yellow-700 text-yellow-800 dark:text-yellow-200'
-                          : 'bg-red-100 dark:bg-red-900/50 border-red-300 dark:border-red-700 text-red-800 dark:text-red-200'
+                        ? p === 'low'
+                          ? 'bg-gray-200 dark:bg-slate-600 border-gray-300 dark:border-slate-500 text-gray-800 dark:text-slate-100'
+                          : p === 'medium'
+                            ? 'bg-yellow-100 dark:bg-yellow-900/50 border-yellow-300 dark:border-yellow-700 text-yellow-800 dark:text-yellow-200'
+                            : 'bg-red-100 dark:bg-red-900/50 border-red-300 dark:border-red-700 text-red-800 dark:text-red-200'
                         : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-600 text-gray-500 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-700'
                     )}
                   >
@@ -151,7 +159,7 @@ export function TaskModal({ projectId, task, onClose }: Props) {
               Cancel
             </button>
             <button type="submit" className="btn-primary flex-1" disabled={mutation.isPending}>
-              {mutation.isPending ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Task'}
+              {mutation.isPending ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Task'}
             </button>
           </div>
         </form>

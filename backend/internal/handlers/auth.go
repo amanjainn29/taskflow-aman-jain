@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -46,10 +45,13 @@ type userPayload struct {
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req registerRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r.Body, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+
+	req.Name = normalizeRequiredText(req.Name)
+	req.Email = normalizeEmail(req.Email)
 
 	fields := map[string]string{}
 	if req.Name == "" {
@@ -57,6 +59,8 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Email == "" {
 		fields["email"] = "is required"
+	} else if err := validateEmail(req.Email); err != nil {
+		fields["email"] = err.Error()
 	}
 	if len(req.Password) < 8 {
 		fields["password"] = "must be at least 8 characters"
@@ -94,10 +98,12 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeJSON(r.Body, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
+
+	req.Email = normalizeEmail(req.Email)
 
 	fields := map[string]string{}
 	if req.Email == "" {

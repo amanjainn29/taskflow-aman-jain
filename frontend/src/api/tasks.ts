@@ -3,7 +3,7 @@ import type { Task, TaskStatus, TaskPriority } from '../types'
 
 interface CreateTaskInput {
   title: string
-  description?: string
+  description?: string | null
   priority: TaskPriority
   assignee_id?: string
   due_date?: string
@@ -11,7 +11,7 @@ interface CreateTaskInput {
 
 interface UpdateTaskInput {
   title?: string
-  description?: string
+  description?: string | null
   status?: TaskStatus
   priority?: TaskPriority
   assignee_id?: string | null

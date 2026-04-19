@@ -46,7 +46,7 @@ func main() {
 	// Handlers
 	authHandler := handlers.NewAuthHandler(userRepo, cfg.JWTSecret)
 	projectHandler := handlers.NewProjectHandler(projectRepo, taskRepo)
-	taskHandler := handlers.NewTaskHandler(taskRepo, projectRepo)
+	taskHandler := handlers.NewTaskHandler(taskRepo, projectRepo, userRepo)
 
 	// Router
 	r := chi.NewRouter()

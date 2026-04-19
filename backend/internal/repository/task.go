@@ -90,13 +90,15 @@ func (r *TaskRepo) GetByID(ctx context.Context, id uuid.UUID) (*models.Task, err
 }
 
 type UpdateTaskInput struct {
-	Title       *string
-	Description *string
-	Status      *models.TaskStatus
-	Priority    *models.TaskPriority
-	AssigneeID  *uuid.UUID
-	DueDate     *string
-	ClearAssignee bool
+	Title            *string
+	Description      *string
+	Status           *models.TaskStatus
+	Priority         *models.TaskPriority
+	AssigneeID       *uuid.UUID
+	DueDate          *string
+	ClearDescription bool
+	ClearAssignee    bool
+	ClearDueDate     bool
 }
 
 func (r *TaskRepo) Update(ctx context.Context, id uuid.UUID, input UpdateTaskInput) (*models.Task, error) {
@@ -109,7 +111,9 @@ func (r *TaskRepo) Update(ctx context.Context, id uuid.UUID, input UpdateTaskInp
 		args = append(args, *input.Title)
 		argIdx++
 	}
-	if input.Description != nil {
+	if input.ClearDescription {
+		setClauses = append(setClauses, "description = NULL")
+	} else if input.Description != nil {
 		setClauses = append(setClauses, fmt.Sprintf("description = $%d", argIdx))
 		args = append(args, *input.Description)
 		argIdx++
@@ -131,7 +135,9 @@ func (r *TaskRepo) Update(ctx context.Context, id uuid.UUID, input UpdateTaskInp
 		args = append(args, *input.AssigneeID)
 		argIdx++
 	}
-	if input.DueDate != nil {
+	if input.ClearDueDate {
+		setClauses = append(setClauses, "due_date = NULL")
+	} else if input.DueDate != nil {
 		setClauses = append(setClauses, fmt.Sprintf("due_date = $%d", argIdx))
 		args = append(args, *input.DueDate)
 		argIdx++
